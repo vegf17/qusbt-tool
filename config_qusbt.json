@@ -1,0 +1,15 @@
+{
+    "qusbt_configuration":{
+        "beta":0.05,
+        "confidence_level":0.01
+    },
+    "GA_parameter":{
+        "population_size":10,
+        "offspring_population_size":10,
+        "max_evaluations":500,
+        "mutation_probability":null,
+        "mutation_distribution_index":null,
+        "crossover_probability":null,
+        "crossover_distribution_index":null
+    }
+}

@@ -2,7 +2,7 @@ import numpy as np
 from jmetal.core.problem import IntegerProblem
 from jmetal.core.solution import IntegerSolution
 
-from testing import calculate_fail_number_GA
+from tools.qusbt.QuSBT.testing import calculate_fail_number_GA
 
 import math
 
@@ -13,23 +13,31 @@ class TestingProblem(IntegerProblem):
 
         n = len(config_dic['inputID'])
         if 'M' in config_dic.keys():
-            self.number_of_variables = config_dic['M']
+            self.number_of_vars = config_dic['M']
         else:
-            self.number_of_variables = math.ceil(pow(2, n) * config_dic['beta'])
-        self.number_of_objectives = 1
-        self.number_of_constraints = 0
+            self.number_of_vars = math.ceil(pow(2, n) * config_dic['beta'])
+        self.number_of_objs = 1
+        self.number_of_constrs = 0
 
 
         self.obj_directions = [self.MINIMIZE]
 
-        self.lower_bound = self.number_of_variables * [0]
+        self.lower_bound = self.number_of_vars * [0]
 
-        self.upper_bound = self.number_of_variables * [pow(2,n)-1]
+        self.upper_bound = self.number_of_vars * [pow(2,n)-1]
 
         self.config_dic = config_dic
         self.solution_sheet = solution_sheet
         self.log_sheet = log_sheet
 
+    def number_of_variables(self) -> int:
+        return self.number_of_vars
+
+    def number_of_objectives(self) -> int:
+        return self.number_of_objs
+
+    def number_of_constraints(self) -> int:
+        return self.number_of_constrs
 
     def evaluate(self, solution: IntegerSolution) -> IntegerSolution:
         variables = np.array(solution.variables)
@@ -38,5 +46,5 @@ class TestingProblem(IntegerProblem):
         solution.objectives[0] = -p
         return solution
 
-    def get_name(self) -> str:
+    def name(self) -> str:
         return 'TestingProblem'

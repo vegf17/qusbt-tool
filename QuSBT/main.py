@@ -1,4 +1,4 @@
-from search_method import Search
+from tools.qusbt.QuSBT.search_method import Search
 import time
 import os
 import configparser
@@ -8,6 +8,8 @@ import sys
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(os.path.split(rootPath)[0])
+
+EPSILON = 1e-9 #value used when checking the sum of the probabilities in the program specification file
 
 if sys.platform.startswith('win32'):
     ROOT='\\'
@@ -283,7 +285,7 @@ def check_full_ps(valid_input, p):
             end = index[i+1]
         for j in range(start,end):
             p_sum += p[j]
-        if p_sum != 1:
+        if (1-EPSILON)>=p_sum or p_sum>=(1+EPSILON): #changed this line
             print("Error: This is not a complete program specification.")
             end_running()
         else:
@@ -291,6 +293,188 @@ def check_full_ps(valid_input, p):
 
 def end_running():
     exit()
+
+def qusbt_run(ini_file):
+    START = time.time()
+
+    if os.path.isfile(ini_file) == True:
+        config = configparser.ConfigParser(allow_no_value=True)
+        config.read(ini_file, encoding='utf-8')
+    else:
+        print("Error: QuSBT cannot find the configuration file.")
+        end_running()
+
+    check_configuration_file(config)
+
+    # get quantum program
+    root = config.get('program', 'root')
+    if os.path.isfile(root) != True:
+        print("Error: QuSBT cannot find the quantum program file.")
+        end_running()
+
+    root_list = root.split(ROOT)
+    program_file = root_list[len(root_list) - 1]
+    program_folder = root_list[:len(root_list) - 1]
+    program_folder = ROOT.join(str(i) for i in program_folder)
+    sys.path.append(program_folder)
+    # print(program_file.split('.')[0])
+    module_name = program_file.split('.')[0]
+
+    # get inputID, outputID and numner of qubits
+    try:
+        num_qubit = int(config.get('program', 'num_qubit'))
+    except:
+        print("Error: The data type of 'num_qubit' should be an Integer")
+        end_running()
+    inputID_o = config.get('program', 'inputID').split(',')
+    outputID_o = config.get('program', 'outputID').split(',')
+    inputID, outputID = check_inputID_outputID(num_qubit, inputID_o, outputID_o)
+
+    population_size = 10
+    offspring_population_size = 10
+    max_evaluations = 500
+    if config.get('GA_parameter', 'population_size') != None:
+        try:
+            population_size = int(config.get('GA_parameter', 'population_size'))
+        except:
+            print("Error: The data type of 'population_size' should be an Integer")
+            end_running()
+    if config.get('GA_parameter', 'offspring_population_size') != None:
+        try:
+            offspring_population_size = int(config.get('GA_parameter', 'offspring_population_size'))
+        except:
+            print("Error: The data type of 'off_population_size' should be an Integer")
+            end_running()
+
+    if config.get('GA_parameter', 'max_evaluations') != None:
+        try:
+            max_evaluations = int(config.get('GA_parameter', 'max_evaluations'))
+        except:
+            print("Error: The data type of 'max_evaluations' should be an Integer")
+            end_running()
+
+    M_flag = False
+    beta = 0
+    if config.has_option('qusbt_configuration','M') == True:
+        M_flag == True
+        try:
+            M = int(config.get('qusbt_configuration','M'))
+        except:
+            print("Error: The data type of 'M' should be an Integer.")
+            end_running()
+        if config.has_option('qusbt_configuration', 'beta') == True:
+            print("Error: You should use either 'M' or 'beta'.")
+            end_running()
+    elif config.has_option('qusbt_configuration','beta') == True:
+        try:
+            beta = float(config.get('qusbt_configuration','beta'))
+        except:
+            print("Error: The data type of 'beta' should be a Float.")
+            end_running()
+    else:
+        beta = 0.05
+
+    confidence_level = 0.01
+    if config.has_option('qusbt_configuration', 'confidence_level') == True:
+        try:
+            confidence_level = float(config.get('qusbt_configuration', 'confidence_level'))
+        except:
+            print("Error: The data type of 'confidence_level' should be a Float.")
+            end_running()
+
+    mutation_probability_flag = False
+    if config.has_option('GA_configuration', 'mutation_probability') == True:
+        mutation_probability_flag = True
+        try:
+            mutation_probability = float(config.get('GA_configuration', 'crossover_probability'))
+        except:
+            print("Error: The data type of 'mutation_probability' should be a Float.")
+            end_running()
+        if mutation_probability >= 1:
+            print("Error: The value of 'mutation_probability' should be a Float smaller than 1.0.")
+            end_running()
+
+    mutation_distribution_index = 20
+    if config.has_option('GA_configuration', 'mutation_distribution_index') == True:
+        try:
+            mutation_distribution_index = int(config.get('GA_configuration', 'mutation_distribution_index'))
+        except:
+            print("Error: The data type of 'mutation_distribution_index' should be an Integer.")
+            end_running()
+
+    crossover_distribution_index = 20
+    if config.has_option('GA_configuration', 'crossover_distribution_index') == True:
+        try:
+            crossover_distribution_index = int(config.get('GA_configuration', 'crossover_distribution_index'))
+        except:
+            print("Error: The data type of 'crossover_distribution_index' should be an Integer.")
+            end_running()
+
+    crossover_probability = 0.9
+    if config.has_option('GA_configuration', 'crossover_probability') == True:
+        try:
+            crossover_probability = float(config.get('GA_configuration', 'crossover_probability'))
+        except:
+            print("Error: The data type of 'crossover_probability' should be a Float.")
+            end_running()
+        if crossover_probability >= 1:
+            print("Error: The value of 'crossover_probability' should be a Float smaller than 1.0.")
+            end_running()
+
+
+    #PS
+    valid_input = []
+    valid_output = []
+    p = []
+    ps = config.items('program_specification')
+    ps = expand_ps(ps, inputID, outputID)
+
+    # print(ps)
+    #print("origin:"+str(ps))
+    if check_unique_pair(ps) == False:
+        print("There are duplicate input-output pairs in the program specification.")
+        end_running()
+    #sort PS according to input and output
+    ps.sort(key=lambda x:x[0])
+    #print("new:"+str(ps))
+    for i in range(len(ps)):
+        valid_input_item = ps[i][0][:len(inputID)]
+        valid_output_item = ps[i][0][len(inputID)+1:]
+        check_bin(valid_input_item,len(inputID))
+        check_bin(valid_output_item,len(outputID))
+        valid_input.append(valid_input_item)
+        valid_output.append(valid_output_item)
+        p.append(float(ps[i][1]))
+    check_full_ps(valid_input, p)
+
+    config_dic = {}
+    config_dic['program_folder'] = program_folder
+    config_dic['root'] = ini_file
+    config_dic['module_name'] = module_name
+    config_dic['num_qubit'] = num_qubit
+    config_dic['inputID'] = inputID
+    config_dic['outputID'] = outputID
+    if M_flag == True:
+        config_dic['M'] = M
+    else:
+        config_dic['beta'] = beta
+    config_dic['confidence_level'] = confidence_level
+    config_dic['population_size'] = population_size
+    config_dic['offspring_population_size'] = offspring_population_size
+    config_dic['max_evaluations'] = max_evaluations
+    config_dic['valid_input'] = valid_input
+    config_dic['valid_output'] = valid_output
+    config_dic['p'] = p
+    config_dic['crossover_probability'] = crossover_probability
+    config_dic['crossover_distribution_index'] = crossover_distribution_index
+    if mutation_probability_flag == True:
+        config_dic['mutation_probability'] = mutation_probability
+    config_dic['mutation_distribution_index'] = mutation_distribution_index
+    Search.search(config_dic)
+    # Search.search(root, module_name, alg, len(inputID), beta)
+    END = time.time()
+    T1 = END-START
+    
 
 if __name__ == '__main__':
     # warnings.filterwarnings('ignore')

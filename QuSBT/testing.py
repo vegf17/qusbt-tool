@@ -3,9 +3,11 @@ from qiskit import (
     QuantumCircuit,
     QuantumRegister,
     ClassicalRegister,
-    execute,
-    Aer,
+    transpile
+    #execute,
+    #Aer,
 )
+from qiskit_aer import AerSimulator
 
 import collections
 
@@ -16,7 +18,7 @@ import rpy2.robjects as robjects
 import os
 import pandas as pd
 import time
-import swap
+#import swap
 
 
 def dec2bin(value, n):
@@ -40,17 +42,32 @@ def wrong_output(i, right_output):
     return False
 
 def execute_quantum_program(inputID, outputID, num_qubit, i, module_name, times): #module_name is the name of the quantum program file
+    # print("-------------------------------------------------")
+    # print(f"inputID = {inputID}")
+    # print(f"outputID = {outputID}")
+    # print(f"num_qubit = {num_qubit}")
+    # print(f"i = {i}")
+    # print(f"module_name = {module_name}")
+    # print(f"times = {times}")
+    # print("-------------------------------------------------")
     q = QuantumRegister(num_qubit)
     c = ClassicalRegister(len(outputID))
-    qc = QuantumCircuit(q, c)
+    qc_init = QuantumCircuit(q, c)
+    qc_qasm = QuantumCircuit.from_qasm_file("./data/qc/"+module_name+".qasm")
     i = dec2bin(i, len(inputID)) # Turning one integer into binary number
     for j in range(len(inputID)):
         if i[len(inputID) - 1 - j] == '1':
-            qc.x(inputID[j])
-    module = importlib.import_module(module_name)
-    run_method = getattr(module,"run")
-    run_method(qc)
-    result = execute(qc, Aer.get_backend('qasm_simulator'), shots=times).result().get_counts(qc)
+            qc_init.x(inputID[j])
+    qc = qc_init.compose(qc_qasm)
+    # module = importlib.import_module(module_name)
+    # run_method = getattr(module,"run")
+    # run_method(qc)
+    
+    # result = execute(qc, Aer.get_backend('qasm_simulator'), shots=times).result().get_counts(qc)
+    simulator = AerSimulator()
+    compiled_circuit = transpile(qc,simulator,optimization_level=0)
+    job = simulator.run(compiled_circuit,shots=times)
+    result = job.result().get_counts()
     return result
 
 def check_WOO(i, o, valid_inputs, valid_outputs):
@@ -159,7 +176,7 @@ def calculate_fail_number_GA(input, config_dic, solution_sheet, log_sheet):
     log_sheet.append(inputs_str)
     log_sheet.append(test_results)
     log_sheet.append(count_fail_list)
-    process_bar((log_sheet.max_row / 3) / config_dic['max_evaluations'], start_str='', end_str='100%', total_length=30)
+    # process_bar((log_sheet.max_row / 3) / config_dic['max_evaluations'], start_str='', end_str='100%', total_length=30)
 
     return count_fail
 

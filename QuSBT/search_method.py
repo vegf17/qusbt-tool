@@ -1,6 +1,6 @@
 import os
 from openpyxl import Workbook
-from testing import dec2bin
+from tools.qusbt.QuSBT.testing import dec2bin
 
 import numpy as np
 from jmetal.algorithm.multiobjective import RandomSearch
@@ -10,9 +10,9 @@ from jmetal.operator import IntegerSBXCrossover
 from jmetal.operator.selection import BestSolutionSelection
 from jmetal.util.termination_criterion import StoppingByEvaluations
 
-from TestingProblem import TestingProblem
+from tools.qusbt.QuSBT.TestingProblem import TestingProblem
 
-from GenerateUnitTest import GenerateUnitTest
+from tools.qusbt.QuSBT.GenerateUnitTest import GenerateUnitTest
 
 import sys
 if sys.platform.startswith('win32'):
@@ -22,9 +22,10 @@ elif sys.platform.startswith('linux'):
 elif sys.platform.startswith('darwin'):
     ROOT='/'
 
+DATA_FOLDER = "./tools/qusbt/data"
+RESULT_FOLDER = "./data/results/qusbt"
+
 class Search:
-
-
     @staticmethod
     def search(config_dic):
         wb = Workbook()
@@ -52,15 +53,16 @@ class Search:
                 problem=problem,
                 population_size=config_dic['population_size'],  # 10
                 offspring_population_size=config_dic['offspring_population_size'], #10
-                mutation=IntegerPolynomialMutation(probability=1.0/problem.number_of_variables, distribution_index=config_dic['mutation_distribution_index']),
-                crossover=IntegerSBXCrossover(probability=config_dic['crossover_probability'], distribution_index=config_dic['crossover_distribution_index']),  # 0.9, 20
+                mutation=IntegerPolynomialMutation(probability=1.0/problem.number_of_variables(), distribution_index=config_dic['mutation_distribution_index']), #<---
+                crossover=IntegerSBXCrossover(probability=config_dic['crossover_probability'], distribution_index=config_dic['crossover_distribution_index']),  # 0.9, 20 #<---
                 selection=BestSolutionSelection(),
                 termination_criterion=StoppingByEvaluations(max_evaluations=config_dic['max_evaluations'])  # 500
             )
 
         algorithm.run()
 
-        result = algorithm.get_result()
+        #result = algorithm.get_result()
+        result = algorithm.result()
         result_int = result.variables
         solution = []
         for l in range(len(result_int)):
@@ -94,7 +96,8 @@ class Search:
         for l in range(len(total_time)):
             solution_sheet.cell(row=3,column=l+1,value=total_time[l])
 
-        wb.save(config_dic['program_folder']+ ROOT +config_dic['module_name']+'_result.xlsx')
+        # wb.save(config_dic['program_folder']+ ROOT +config_dic['module_name']+'_result.xlsx')
+        wb.save(RESULT_FOLDER + ROOT + config_dic['module_name'] + ROOT + config_dic['module_name'] + '_result.xlsx')
 
         print("\n")
         print(f'Computing time: ${algorithm.total_computing_time}')

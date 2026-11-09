@@ -5,11 +5,13 @@ class GenerateUnitTest():
 
     @staticmethod
     def generateUnitTestClass(quantumProgram, inputID, outputID, num_qubit, inputs, input_str, times, program_folder, ROOT):
+        qc_path = "./data/qc"
+        qasm_program = qc_path + "/" + quantumProgram + ".qasm"        
         str_list = []
         str_list.append("import unittest\n")
         str_list.append("import sys\n")
-        str_list.append("sys.path.append(\""+program_folder+"\")\n")
-        str_list.append("from testing import execute_quantum_program\n\nclass ")
+        str_list.append("sys.path.append(\""+qc_path+"\")\n")
+        str_list.append("from tools.qusbt.QuSBT.testing import execute_quantum_program\n\nclass ")
         className = quantumProgram + "Test"
         str_list.append(className)
         str_list.append("(unittest.TestCase):\n\n")
@@ -45,11 +47,15 @@ class GenerateUnitTest():
         output = ''.join(str_list)
         fileName = className + ".py"
 
-        resultFolder = 'generatedTestSuites'
-        if not os.path.exists(sys.path[0]+ROOT+resultFolder):
-            os.makedirs(sys.path[0]+ROOT+resultFolder)
+        # resultFolder = 'generatedTestSuites'
+        # if not os.path.exists(sys.path[0]+ROOT+resultFolder):
+        #     os.makedirs(sys.path[0]+ROOT+resultFolder)
+        f_root = './data/results/qusbt/'+quantumProgram+'/generatedTestSuites'
+        if not os.path.exists(f_root):
+            os.makedirs(f_root)
 
-        f = open(sys.path[0]+ROOT+resultFolder+ROOT+fileName, "w")
+        # f = open(sys.path[0]+ROOT+resultFolder+ROOT+fileName, "w")
+        f = open(f_root+ROOT+fileName, "w")
         f.write(output)
         f.close()
 
